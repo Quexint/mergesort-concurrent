@@ -5,7 +5,12 @@
 #include "threadpool.h"
 #include "list.h"
 
-#define USAGE "usage: ./sort [thread_count] [input_count]\n"
+#define USAGE "usage:\n" \
+	"(1) ./sort [thread_count]\n" \
+	"(2) ./sort [thread_count] [input_filename]\n" \
+	"(3) ./sort [thread_count] [input_filename] [output_filename]\n"
+
+FILE *fin, *fout;
 
 struct {
     pthread_mutex_t mutex;
@@ -23,9 +28,9 @@ llist_t *merge_list(llist_t *a, llist_t *b)
     llist_t *_list = list_new();
     node_t *current = NULL;
     while (a->size && b->size) {
+        int ret_cmp = strcmp(a->head->lastname, b->head->lastname);
         llist_t *small = (llist_t *)
-                         ((intptr_t) a * (a->head->data <= b->head->data) +
-                          (intptr_t) b * (a->head->data > b->head->data));
+                         ((intptr_t) a * (ret_cmp <= 0) + (intptr_t) b * (ret_cmp > 0));
         if (current) {
             current->next = small->head;
             current = current->next;
@@ -142,27 +147,36 @@ static void *task_run(void *data)
 
 int main(int argc, char const *argv[])
 {
-    if (argc < 3) {
+    fin = stdin, fout = stdout;
+    if (argc < 2) {
         printf(USAGE);
         return -1;
     }
     thread_count = atoi(argv[1]);
-    data_count = atoi(argv[2]);
-    max_cut = thread_count * (thread_count <= data_count) +
-              data_count * (thread_count > data_count) - 1;
+
+    if (argc >= 3) {
+        fin = fopen(argv[2], "r");
+        if (fin == NULL)
+            fprintf (stderr, "Cannot read from %s\n", argv[2]);
+    }
+
+    if (argc >= 4) {
+        fout = fopen(argv[3], "w");
+        if (fout == NULL)
+            fprintf (stderr, "Cannot write to %s\n", argv[3]);
+    }
+
 
     /* Read data */
     the_list = list_new();
 
-    /* FIXME: remove all all occurrences of printf and scanf
-     * in favor of automated test flow.
-     */
-    printf("input unsorted data line-by-line\n");
-    for (int i = 0; i < data_count; ++i) {
-        long int data;
-        scanf("%ld", &data);
-        list_add(the_list, data);
-    }
+    char lastname[MAX_LAST_NAME_SIZE];
+    while(EOF != fscanf(fin, "%s", lastname))
+        list_add(the_list, lastname);
+
+    data_count = the_list->size;
+    max_cut = thread_count * (thread_count <= data_count) +
+              data_count * (thread_count > data_count) - 1;
 
     /* initialize tasks inside thread pool */
     pthread_mutex_init(&(data_context.mutex), NULL);

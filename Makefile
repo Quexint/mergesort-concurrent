@@ -19,8 +19,22 @@ deps := $(OBJS:%.o=.%.o.d)
 sort: $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) -rdynamic
 
+cache-test: sort
+	uniq dictionary/words.txt | sort -R > input.txt
+	for i in `(seq 2 2 32)`; do \
+		perf stat --field-separator=, --repeat 1 \
+			-e cache-misses,cache-references,instructions,cycles \
+			./sort $$i input.txt output.txt 2>&1 \
+			| sed -e "s/^/{$$i}Threads,/" \
+			| grep miss >> runtime.txt; \
+	done
+
+plot: cache-test
+	gnuplot scripts/catchmiss.gp
+	gnuplot scripts/runtime.gp
+
 clean:
-	rm -f $(OBJS) sort
+	rm -f $(OBJS) sort input.txt output.txt runtime.txt
 	@rm -rf $(deps)
 
 -include $(deps)

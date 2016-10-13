@@ -1,13 +1,17 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <assert.h>
 
 #include "list.h"
 
-static node_t *node_new(val_t val, node_t *next)
+extern FILE *fin, *fout;
+
+static node_t *node_new(char *val, node_t *next)
 {
     /* allocate node */
     node_t *node = malloc(sizeof(node_t));
-    node->data = val;
+    strcpy(node->lastname, val);
     node->next = next;
     return node;
 }
@@ -25,10 +29,9 @@ llist_t *list_new()
  * list_add inserts a new node with the given value val in the list
  * (if the value was absent) or does nothing (if the value is already present).
  */
-int list_add(llist_t *list, val_t val)
+int list_add(llist_t *list, char *val)
 {
-    node_t *e = node_new(val, NULL);
-    e->next = list->head;
+    node_t *e = node_new(val, list->head);
     list->head = e;
     list->size++;
     return 0;
@@ -51,11 +54,9 @@ node_t *list_nth(llist_t *list, uint32_t idx)
 void list_print(llist_t *list)
 {
     node_t *cur = list->head;
-    /* FIXME: we have to validate the sorted results in advance. */
-    printf("\nsorted results:\n");
     while (cur) {
-        printf("[%ld] ", cur->data);
+        assert(cur->next == NULL || strcmp(cur->lastname, cur->next->lastname) <= 0);
+        fprintf(fout, "%s\n", cur->lastname);
         cur = cur->next;
     }
-    printf("\n");
 }
